@@ -38,6 +38,7 @@ if(!class_exists('GoogleSyntaxHighlighterPro')){
 
 		var $themes=array('Default','Django','Eclipse','Emacs','FadeToGrey','Midnight','RDark');
 
+		var $languagesAlais=array('as3', 'actionscript3','bash', 'shell','c-sharp', 'csharp','cpp', 'c' ,'css' ,'delphi', 'pas', 'pascal','diff', 'patch','groovy' ,'js', 'jscript', 'javascript' , 'java' , 'jfx', 'javafx' ,'perl', 'pl' ,'php' ,'plain', 'text' ,'ps', 'powershell' ,'py', 'python' ,'ails', 'ror', 'ruby' , 'scala','sql' ,'vb', 'vbnet' ,'xml', 'xhtml', 'xslt', 'html', 'xhtml'  );
 
 		var $adminOptionsName = 'SyntaxHighlighterAdminOptions';
 		var $googleSyntaxHighlighterVersion='2.1.364';
@@ -45,9 +46,9 @@ if(!class_exists('GoogleSyntaxHighlighterPro')){
 		//load styles and scripts
 		function loadResources() {
 			wp_enqueue_style('shCore.css', plugins_url('/styles/shCore.css',__FILE__), false,$this->googleSyntaxHighlighterVersion , 'all');
-			
+
 			wp_enqueue_script('shCore.js',plugins_url('/scripts/shCore.js',__FILE__),false,$this->googleSyntaxHighlighterVersion,true);
-			$scriptsOption=$this->adminOptions();	
+			$scriptsOption=$this->adminOptions();
 			foreach($scriptsOption as $lan=>$option){
 				if(array_key_exists($lan,$this->defaultLanguages)){
 					$lanEnabled=$option[1];
@@ -55,7 +56,7 @@ if(!class_exists('GoogleSyntaxHighlighterPro')){
 						wp_enqueue_script('shBrush'.$lan,plugins_url('/scripts/shBrush'.$lan.'.js',__FILE__),false,$this->googleSyntaxHighlighterVersion,true);
 					}
 				}
-				
+
 				if($lan=='theme'){
 					wp_enqueue_style('shTheme'.$option.'.css', plugins_url('/styles/shTheme'.$option.'.css',__FILE__), false,$this->googleSyntaxHighlighterVersion , 'all');
 				}
@@ -71,6 +72,36 @@ if(!class_exists('GoogleSyntaxHighlighterPro')){
 			.'</script>';
 			echo($scriptsLoader);
 
+		}
+		function bbcode($content)
+		{
+			$adminOption=$this->adminOptions();
+			if($adminOption['bbcode']=='false'){
+				return $content;
+			}
+			$bbcode=array();
+			foreach($this->languagesAlais as $language){
+				$language=strtolower($language);
+				$bbcode["/\[$language\](.*?)\[\/$language\]/is"]="<pre class=\"brush:$language\">$1</pre>";
+			}
+			$content = preg_replace(array_keys($bbcode), array_values($bbcode), $content);
+			return $content;
+		}
+
+		function bbcode_strip($content)
+		{
+			$adminOption=$this->adminOptions();
+			if($adminOption['bbcode']=='false'){
+				return $content;
+			}
+			$bbcode=array();
+			foreach($this->languagesAlais as $language){
+				$language=strtolower($language);
+				$bbcode["/\[$language\](.*?)\[\/$language\]/is"]="$1";
+			}
+
+			$content = preg_replace(array_keys($bbcode), array_values($bbcode), $content);
+			return $content;
 		}
 
 
@@ -92,12 +123,18 @@ if(!class_exists('GoogleSyntaxHighlighterPro')){
 				}else{
 					$adminOptions['theme']='Default';
 				}
+				if(array_key_exists('bbcode',$devOptions)&&$devOptions['bbcode']){
+					$adminOptions['bbcode']=$devOptions['bbcode'];
+				}else{
+					$adminOptions['bbcode']='true';
+				}
 			}else{
 				$adminOptions['theme']='Default';
+				$adminOptions['bbcode']='true';
 			}
 
 			update_option($this->adminOptionsName,$adminOptions);
-				
+
 			return $adminOptions;
 		}
 
@@ -113,6 +150,7 @@ if(!class_exists('GoogleSyntaxHighlighterPro')){
 					}
 				}
 				$devOptions['theme']=$_POST['theme'];
+				$devOptions['bbcode']=$_POST['bbcode'];
 				update_option($this->adminOptionsName,$devOptions);
 				?>
 <div class="updated">
@@ -122,10 +160,21 @@ if(!class_exists('GoogleSyntaxHighlighterPro')){
 			}//end of update
 			?>
 <div class="wrap">
-<form method="post" action="<?php echo($_SERVER['REQUEST_URI']);?>
-">
+<form method="post" action="<?php echo($_SERVER['REQUEST_URI']);?>">
 
 <h2>Google Code Syntax Highlighter Settings</h2>
+<h3>BBCode Support</h3>
+<p><label for="bbcode_Yes"> <input type="radio" id="bbcode_Yes"
+	name="bbcode" value="true"
+	<?php
+
+	if($devOptions['bbcode']=='true'||$devOptions['bbcode']===true){
+		_e('checked="checked"','SyntaxHighlighterPro'); }?> />Yes</label> <label
+	for="bbcode_No"><input type="radio" id="bbcode_No" name="bbcode"
+	value="false"
+	<?php
+	if($devOptions['bbcode']=='false'||$devOptions===false){
+		_e('checked="checked"','SyntaxHighlighterPro'); }?> />No</label></p>
 
 <h3>Theme styles</h3>
 <p><?php
@@ -145,12 +194,12 @@ foreach($this->themes as $theme){
 <?php
 
 foreach($devOptions as $lanValue=>$lan){
-	if($lanValue=='theme'){
+	if($lanValue=='theme'||$lanValue=='bbcode'){
 	 continue;
 	}
 	$lanLabel=$lan[0];
 	$lanEnabled=$lan[1];
-	
+
 	?>
 
 <fieldset>
@@ -160,13 +209,13 @@ foreach($devOptions as $lanValue=>$lan){
 	value="true"
 	<?php
 
-	if($lanEnabled=='true'||($lanEnabled==true)){
+	if($lanEnabled=='true'||($lanEnabled===true)){
 		_e('checked="checked"','SyntaxHighlighterPro'); }?> />Yes</label> <label
 	for="<?php echo($lanValue); ?>_No"><input type="radio"
 	id="<?php echo($lanValue); ?>_No" name="<?php echo($lanValue); ?>"
 	value="false"
 	<?php
-	if($lanEnabled=='false'||($lanEnabled==false)){
+	if($lanEnabled=='false'||($lanEnabled===false)){
 		_e('checked="checked"','SyntaxHighlighterPro'); }?> />No</label></p>
 </fieldset>
 
@@ -207,4 +256,15 @@ add_action('activate_syntaxhighlighter/wp-syntaxhighlighterpro.php',array(&$goog
 add_action('wp_enqueue_scripts',array(&$googleSyntaxHighlighter,'loadResources'));
 add_action('wp_footer',array(&$googleSyntaxHighlighter,'runscripts'));
 add_action('admin_menu','SyntaxHighlighterAdminPanel');
+
+//BBCode Support
+add_filter('the_content',array(&$googleSyntaxHighlighter,'bbcode'),1,1);
+add_filter('comment_text',array(&$googleSyntaxHighlighter,'bbcode'),1,1);
+add_filter('the_excerpt',array(&$googleSyntaxHighlighter,'bbcode'),1,1);
+
+// Remove BBCode from these.
+add_filter('comment_text_rss',array(&$googleSyntaxHighlighter,'bbcode_strip'),1,1);
+add_filter('the_excerpt_rss',array(&$googleSyntaxHighlighter,'bbcode_strip'),1,1);
+add_filter('the_content_rss',array(&$googleSyntaxHighlighter,'bbcode_strip'),1,1);
+
 ?>
